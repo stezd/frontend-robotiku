@@ -137,7 +137,6 @@ export default function CanvasAnalitikPage() {
                     <div className="border-b p-5">
                         <div className="flex items-center gap-2">
                             <h3 className="text-sm font-bold text-slate-800">Papan Peringkat Performa Canvaser</h3>
-                            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">Bulan Ini</span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">Perbandingan efektivitas dan mobilitas antar personel Marketing.</p>
                     </div>
@@ -149,7 +148,7 @@ export default function CanvasAnalitikPage() {
                                         <th className="px-5 py-4 font-semibold">Nama Canvaser</th>
                                         <th className="px-5 py-4 font-semibold">Total Prospek</th>
                                         <th className="px-5 py-4 font-semibold">Berhasil MoU</th>
-                                        <th className="px-5 py-4 font-semibold">Log Kunjungan</th>
+                                        <th className="px-5 py-4 font-semibold">Log Kunjungan <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-800">Bulan Ini</span></th>
                                         <th className="px-5 py-4 font-semibold">Rasio Konversi</th>
                                     </tr>
                                 </thead>

@@ -367,7 +367,7 @@ export function KeuanganDashboard() {
                     </div>
                 </Card>
 
-                <Link href="/app/keuangan" className="block">
+                <Link href="/app/keuangan/verifikasi" className="block">
                     <Card className="group border-2 p-5 transition-all hover:-translate-y-0.5 hover:shadow-md">
                         <div className="flex items-center gap-3">
                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
