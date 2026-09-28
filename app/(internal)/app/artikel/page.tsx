@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 type Article = { id: number; title: string; slug: string; category: string | null; status: "draft" | "publish"; cover_image: string | null; created_at: string };
 type Paginated = { data: Article[]; current_page: number; last_page: number; total: number };
 
-export const mediaUrl = (p?: string | null) => (!p ? null : /^https?:\/\/|^\//.test(p) ? p : `/api/v1/public-media/${p}`);
+const mediaUrl = (p?: string | null) => (!p ? null : /^https?:\/\/|^\//.test(p) ? p : `/api/v1/public-media/${p}`);
 const tgl = (s: string) => new Date(s).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
 
 export default function ArtikelPage() {
