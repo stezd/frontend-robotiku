@@ -40,19 +40,22 @@ type Paginator = { data: Student[]; current_page: number; last_page: number; tot
 const statusCls: Record<string, string> = {
     aktif: "bg-emerald-50 text-emerald-700 border-emerald-200",
     cuti: "bg-amber-50 text-amber-700 border-amber-200",
+    nonaktif: "bg-slate-100 text-slate-600 border-slate-200",
+    lulus: "bg-blue-50 text-blue-700 border-blue-200",
     berhenti: "bg-rose-50 text-rose-700 border-rose-200",
 };
 
 const genderLabel = (g?: string) => (g === "L" ? "Laki-laki" : g === "P" ? "Perempuan" : "—");
 const tglLong = (s?: string | null) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" }) : "—");
 const usia = (s?: string | null) => { if (!s) return null; const b = new Date(s), n = new Date(); let a = n.getFullYear() - b.getFullYear(); const m = n.getMonth() - b.getMonth(); if (m < 0 || (m === 0 && n.getDate() < b.getDate())) a--; return a; };
-const filters = ["semua", "aktif", "cuti", "berhenti"];
+const filters = ["semua", "aktif", "cuti", "nonaktif", "lulus"];
 
 function SiswaInner() {
     const qc = useQueryClient();
     const [search, setSearch] = useState("");
     const [status, setStatus] = useState("semua");
     const [tipe, setTipe] = useState("semua");
+    const [verifikasi, setVerifikasi] = useState("verified");
     const [page, setPage] = useState(1);
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const reset = () => setPage(1);
@@ -61,14 +64,20 @@ function SiswaInner() {
 
     useEffect(() => {
         const sid = searchParams.get("student");
-        if (sid) setSelectedId(Number(sid));
-    }, [searchParams])
+        setSelectedId(sid ? Number(sid) : null);
+    }, [searchParams]);
 
     const list = useQuery({
-        queryKey: ["siswa", { search, status, tipe, page }],
+        queryKey: ["siswa", { search, status, tipe, verifikasi, page }],
         queryFn: async () =>
             (await api.get("/siswa", {
-                params: { search: search || undefined, status: status === "semua" ? undefined : status, registration_type: tipe === "semua" ? undefined : tipe, page },
+                params: {
+                    search: search || undefined,
+                    status: status === "semua" ? undefined : status,
+                    registration_type: tipe === "semua" ? undefined : tipe,
+                    verification_status: verifikasi === "semua" ? "all" : verifikasi,
+                    page,
+                },
             })).data.data as Paginator,
         placeholderData: keepPreviousData,
     });
@@ -82,7 +91,12 @@ function SiswaInner() {
     const exportFile = useMutation({
         mutationFn: async (type: "excel" | "pdf") => {
             const res = await api.get(`/siswa/export/${type}`, {
-                params: { search: search || undefined, status: status === "semua" ? undefined : status, registration_type: tipe === "semua" ? undefined : tipe },
+                params: {
+                    search: search || undefined,
+                    status: status === "semua" ? undefined : status,
+                    registration_type: tipe === "semua" ? undefined : tipe,
+                    verification_status: verifikasi === "semua" ? "all" : verifikasi,
+                },
                 responseType: "blob",
             });
             const url = URL.createObjectURL(res.data as Blob);
@@ -117,8 +131,16 @@ function SiswaInner() {
                         {filters.map((f) => (
                             <Button key={f} size="sm" variant={status === f ? "default" : "outline"} className="capitalize" onClick={() => { setStatus(f); reset(); }}>{f}</Button>
                         ))}
+                        <Select value={verifikasi} onValueChange={(v) => { setVerifikasi(v ?? "verified"); reset(); }}>
+                            <SelectTrigger className="h-8 w-[155px]"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="verified">Terverifikasi</SelectItem>
+                                <SelectItem value="unverified">Belum Verifikasi</SelectItem>
+                                <SelectItem value="semua">Semua Verifikasi</SelectItem>
+                            </SelectContent>
+                        </Select>
                         <Select value={tipe} onValueChange={(v) => { setTipe(v ?? "semua"); reset(); }}>
-                            <SelectTrigger className="h-8 w-[150px]"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="h-8 w-[130px]"><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="semua">Semua tipe</SelectItem>
                                 <SelectItem value="mandiri">Mandiri</SelectItem>
@@ -178,7 +200,7 @@ function SiswaInner() {
             <Sheet open={!!selectedId} onOpenChange={(o) => { if (!o) { setSelectedId(null); if (searchParams.get("student")) router.replace("/app/siswa"); } }}>
                 <SheetContent className="w-full overflow-y-auto p-6 sm:max-w-xl">
                     {detail.isLoading && <div className="grid h-full place-items-center"><Loader2 className="h-6 w-6 animate-spin" /></div>}
-                    {detail.data && <Detail student={detail.data} onChanged={() => { detail.refetch(); qc.invalidateQueries({ queryKey: ["siswa"] }); }} />}
+                    {detail.data && <Detail key={detail.data.id} student={detail.data} onChanged={() => { detail.refetch(); qc.invalidateQueries({ queryKey: ["siswa"] }); }} />}
                 </SheetContent>
             </Sheet>
         </div>
@@ -245,7 +267,8 @@ function Detail({ student, onChanged }: { student: Student; onChanged: () => voi
                             <SelectContent>
                                 <SelectItem value="aktif">Aktif</SelectItem>
                                 <SelectItem value="cuti">Cuti</SelectItem>
-                                <SelectItem value="berhenti">Berhenti</SelectItem>
+                                <SelectItem value="nonaktif">Nonaktif</SelectItem>
+                                <SelectItem value="lulus">Lulus</SelectItem>
                             </SelectContent>
                         </Select>
                         <Button disabled={status === student.status || change.isPending} onClick={() => change.mutate()}>
@@ -263,7 +286,7 @@ function Detail({ student, onChanged }: { student: Student; onChanged: () => voi
                         {student.statusLogs?.map((log) => (
                             <div key={log.id} className="relative">
                                 <span className={cn("absolute -left-[14px] top-1 h-3 w-3 rounded-full border-2 border-background",
-                                    log.new_status === "aktif" ? "bg-emerald-500" : log.new_status === "cuti" ? "bg-amber-500" : "bg-rose-500")} />
+                                    log.new_status === "aktif" ? "bg-emerald-500" : log.new_status === "cuti" ? "bg-amber-500" : log.new_status === "lulus" ? "bg-blue-500" : "bg-slate-400")} />
                                 <p className="text-sm font-medium capitalize">{log.old_status ? `${log.old_status} → ${log.new_status}` : `Pendaftaran (${log.new_status})`}</p>
                                 <p className="text-xs text-muted-foreground">Oleh: {log.changed_by_type === "school_admin" ? "Admin Sekolah" : "Staf"} • {log.created_at?.slice(0, 16).replace("T", " ")}</p>
                                 {log.note && <p className="mt-2 inline-block rounded-lg bg-muted/40 p-2 text-sm">{log.note}</p>}

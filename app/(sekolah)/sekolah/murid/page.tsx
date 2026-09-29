@@ -11,12 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api } from "@/lib/api";
 import { SchoolShell } from "@/components/sekolah/SchoolShell";
 import { cn } from "@/lib/utils";
 
 type Kelas = { id: number; name: string };
-type Student = { id: number; student_code: string; name: string; gender: "L" | "P"; status: string; school_grade: string | null; classes: Kelas[] };
+type Student = { id: number; student_code: string; name: string; gender: "L" | "P"; status: string; school_grade: string | null; is_verified?: boolean; classes: Kelas[] };
 type Paginator = { data: Student[]; current_page: number; last_page: number; total: number };
 
 const statusCls: Record<string, string> = {
@@ -31,13 +32,19 @@ const filters = ["semua", "aktif", "cuti", "nonaktif", "lulus"];
 function MuridInner() {
     const [search, setSearch] = useState("");
     const [status, setStatus] = useState("semua");
+    const [verifikasi, setVerifikasi] = useState("verified");
     const [page, setPage] = useState(1);
 
     const q = useQuery({
-        queryKey: ["sekolah-murid", { search, status, page }],
+        queryKey: ["sekolah-murid", { search, status, verifikasi, page }],
         queryFn: async () =>
             (await api.get("/sekolah/murid", {
-                params: { search: search || undefined, status: status === "semua" ? undefined : status, page },
+                params: {
+                    search: search || undefined,
+                    status: status === "semua" ? undefined : status,
+                    verification_status: verifikasi === "semua" ? "all" : verifikasi,
+                    page,
+                },
             })).data.data as Paginator,
         placeholderData: keepPreviousData,
     });
@@ -65,12 +72,20 @@ function MuridInner() {
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input className="pl-9" placeholder="Cari nama murid…" value={search} onChange={(e) => onSearch(e.target.value)} />
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         {filters.map((f) => (
                             <Button key={f} size="sm" variant={status === f ? "default" : "outline"} className="capitalize" onClick={() => onFilter(f)}>
                                 {f}
                             </Button>
                         ))}
+                        <Select value={verifikasi} onValueChange={(v) => { setVerifikasi(v ?? "verified"); setPage(1); }}>
+                            <SelectTrigger className="h-8 w-[155px]"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="verified">Terverifikasi</SelectItem>
+                                <SelectItem value="unverified">Belum Verifikasi</SelectItem>
+                                <SelectItem value="semua">Semua Verifikasi</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
 
@@ -117,7 +132,10 @@ function MuridInner() {
                                 </TableCell>
                                 <TableCell className="text-sm text-muted-foreground">{s.school_grade ?? "-"}</TableCell>
                                 <TableCell>
-                                    <Badge variant="outline" className={cn("capitalize", statusCls[s.status])}>{s.status}</Badge>
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                        {s.is_verified === false && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Belum verifikasi</Badge>}
+                                        <Badge variant="outline" className={cn("capitalize", statusCls[s.status])}>{s.status}</Badge>
+                                    </div>
                                 </TableCell>
                                 <TableCell className="text-right">
                                     <Button asChild size="icon" variant="ghost">
