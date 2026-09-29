@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarCheck, ChevronRight, ImageIcon } from "lucide-react";
 import { api, type ApiEnvelope } from "@/lib/api";
 import { ParentShell } from "@/components/ortu/ParentShell";
-import { useParent } from "@/lib/parent-store";
+import { useParentGuard } from "@/lib/use-parent-guard";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 type Att = { id: number; status: string; report: string | null; has_photo: boolean; attended_at: string };
 type Progress = {
-    student: { id: number; name: string; student_code: string; status: string };
+    student: { id: number; name: string; student_code: string; status: string; school?: string | null };
     summary: { hadir: number; izin: number; tidak_hadir: number; total_sesi: number };
     attendances: Att[];
 };
@@ -29,24 +29,36 @@ const ST: Record<string, { label: string; cls: string; dot: string }> = {
 const tgl = (s: string) => new Date(s).toLocaleDateString("id-ID", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
 
 export default function OrtuProgres() {
-    const parent = useParent((s) => s.parent)!;
+    const { parent, ready } = useParentGuard();
 
     const { data, isLoading } = useQuery({
         queryKey: ["ortu-progres", parent?.studentId],
         enabled: !!parent?.studentId,
         queryFn: async () =>
-            (await api.post<ApiEnvelope<Progress>>("/murid/progress", { student_id: parent?.studentId, phone: parent.phone })).data.data,
+            (await api.post<ApiEnvelope<Progress>>("/murid/progress", { student_id: parent?.studentId, phone: parent?.phone })).data.data,
     });
+
+    if (!ready || !parent) {
+        return (
+            <ParentShell>
+                <div className="space-y-4">
+                    <Skeleton className="h-28 rounded-xl" />
+                    <Skeleton className="h-64 rounded-xl" />
+                </div>
+            </ParentShell>
+        );
+    }
 
     const sum = data?.summary;
     const total = sum?.total_sesi ?? 0;
     const persenHadir = total > 0 ? Math.round(((sum?.hadir ?? 0) / total) * 100) : 0;
+    const schoolName = parent?.schoolName || data?.student?.school;
 
     return (
         <ParentShell>
             <PageHeader
                 title="Progres Belajar"
-                subtitle={data ? `${data.student.name} · ${data.student.student_code}` : "Riwayat kehadiran & catatan trainer."}
+                subtitle={data ? `${data.student.name} · ${data.student.student_code}${schoolName ? ` · ${schoolName}` : ""}` : "Riwayat kehadiran & catatan trainer."}
             />
 
             {isLoading || !data || !sum ? (

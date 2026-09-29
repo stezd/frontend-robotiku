@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, MessageSquareText, CalendarCheck, User, Star } from "lucide-react";
 import { api, type ApiEnvelope } from "@/lib/api";
 import { ParentShell } from "@/components/ortu/ParentShell";
-import { useParent } from "@/lib/parent-store";
+import { useParentGuard } from "@/lib/use-parent-guard";
 import { AuthImage } from "@/components/ui/auth-image";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,14 +28,25 @@ const tgl = (s: string) => new Date(s).toLocaleDateString("id-ID", { weekday: "l
 
 export default function DetailProgres({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
-    const parent = useParent((s) => s.parent)!;
+    const { parent, ready } = useParentGuard();
 
     const { data, isLoading } = useQuery({
         queryKey: ["ortu-progres", parent?.studentId],
         enabled: !!parent?.studentId,
         queryFn: async () =>
-            (await api.post<ApiEnvelope<Progress>>("/murid/progress", { student_id: parent?.studentId, phone: parent.phone })).data.data,
+            (await api.post<ApiEnvelope<Progress>>("/murid/progress", { student_id: parent?.studentId, phone: parent?.phone })).data.data,
     });
+
+    if (!ready || !parent) {
+        return (
+            <ParentShell>
+                <div className="space-y-4">
+                    <Skeleton className="h-10 w-32" />
+                    <Skeleton className="h-64 rounded-xl" />
+                </div>
+            </ParentShell>
+        );
+    }
 
     const a = data?.attendances.find((x) => String(x.id) === id);
     const m = a ? ST[a.status] ?? ST.tidak_hadir : null;

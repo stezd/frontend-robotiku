@@ -6,7 +6,7 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { ArrowLeft, Upload, Loader2, CheckCircle2, Clock, XCircle, ReceiptText, FileCheck2 } from "lucide-react";
 import { api, type ApiEnvelope } from "@/lib/api";
 import { ParentShell } from "@/components/ortu/ParentShell";
-import { useParent } from "@/lib/parent-store";
+import { useParentGuard } from "@/lib/use-parent-guard";
 import { ProofView } from "@/components/ui/proof-view";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ const PST: Record<string, { label: string; cls: string }> = {
 
 export default function DetailTagihan({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
-    const parent = useParent((s) => s.parent)!;
+    const { parent, ready } = useParentGuard();
     const qc = useQueryClient();
     const [file, setFile] = useState<File | null>(null);
     const [msg, setMsg] = useState("");
@@ -47,22 +47,33 @@ export default function DetailTagihan({ params }: { params: Promise<{ id: string
         queryKey: ["ortu-invoices", parent?.studentId],
         enabled: !!parent?.studentId,
         queryFn: async () =>
-            (await api.post<ApiEnvelope<{ invoices: Invoice[] }>>("/bayar/tagihan", { student_id: parent?.studentId, phone: parent.phone })).data.data.invoices,
+            (await api.post<ApiEnvelope<{ invoices: Invoice[] }>>("/bayar/tagihan", { student_id: parent?.studentId, phone: parent?.phone })).data.data.invoices,
     });
-
-    const inv = data?.find((i) => String(i.id) === id);
 
     const upload = useMutation({
         mutationFn: async () => {
             const fd = new FormData();
             fd.append("invoice_id", id);
-            fd.append("phone", parent.phone);
+            fd.append("phone", parent?.phone ?? "");
             fd.append("file", file!);
             return api.post("/bayar/upload", fd);
         },
         onSuccess: () => { setFile(null); setMsg(""); qc.invalidateQueries({ queryKey: ["ortu-invoices", parent?.studentId] }); },
         onError: (e: any) => setMsg(e?.response?.data?.message ?? "Gagal mengunggah bukti."),
     });
+
+    if (!ready || !parent) {
+        return (
+            <ParentShell>
+                <div className="space-y-4">
+                    <Skeleton className="h-10 w-32" />
+                    <Skeleton className="h-72 rounded-xl" />
+                </div>
+            </ParentShell>
+        );
+    }
+
+    const inv = data?.find((i) => String(i.id) === id);
 
     const st = inv ? ST[inv.status] ?? ST.belum_bayar : null;
     const canUpload = inv && (inv.status === "belum_bayar" || inv.status === "ditolak");

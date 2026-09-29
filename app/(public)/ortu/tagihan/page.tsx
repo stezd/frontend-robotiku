@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ReceiptText, ChevronRight, CheckCircle2, Clock, XCircle, Wallet, Building2 } from "lucide-react";
 import { api, type ApiEnvelope } from "@/lib/api";
 import { ParentShell } from "@/components/ortu/ParentShell";
-import { useParent } from "@/lib/parent-store";
+import { useParentGuard } from "@/lib/use-parent-guard";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,26 +25,40 @@ const ST: Record<string, { label: string; cls: string; accent: string; icon: Rea
 };
 
 export default function OrtuTagihan() {
-    const parent = useParent((s) => s.parent)!;
+    const { parent, ready } = useParentGuard();
     const selfManaged = !!parent?.selfManaged;
 
     const { data, isLoading } = useQuery({
         queryKey: ["ortu-invoices", parent?.studentId],
         enabled: !!parent?.studentId && !selfManaged,
         queryFn: async () =>
-            (await api.post<ApiEnvelope<{ invoices: Invoice[] }>>("/bayar/tagihan", { student_id: parent?.studentId, phone: parent.phone })).data.data.invoices,
+            (await api.post<ApiEnvelope<{ invoices: Invoice[] }>>("/bayar/tagihan", { student_id: parent?.studentId, phone: parent?.phone })).data.data.invoices,
     });
+
+    if (!ready || !parent) {
+        return (
+            <ParentShell>
+                <div className="space-y-4">
+                    <Skeleton className="h-28 rounded-xl" />
+                    {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+                </div>
+            </ParentShell>
+        );
+    }
 
     // Sekolah kelola pendaftaran & pembayaran sendiri → tidak ada tagihan di portal
     if (selfManaged) {
         return (
             <ParentShell>
-                <PageHeader title="Tagihan" subtitle="Pembayaran ananda dikelola oleh pihak sekolah." />
+                <PageHeader
+                    title="Tagihan"
+                    subtitle={parent?.schoolName ? `Pembayaran ananda dikelola oleh ${parent.schoolName}.` : "Pembayaran ananda dikelola oleh pihak sekolah."}
+                />
                 <Card className="mt-4 border-2 border-blue-200 bg-blue-50/60 p-10 text-center">
                     <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-700"><Building2 className="h-6 w-6" /></span>
                     <p className="font-semibold text-blue-900">Pembayaran Dikelola Sekolah</p>
                     <p className="mx-auto mt-1.5 max-w-md text-sm text-blue-800">
-                        Pendaftaran dan pembayaran ananda diurus langsung oleh pihak sekolah, jadi tidak ada tagihan yang perlu dibayar melalui portal ini.
+                        Pendaftaran dan pembayaran ananda diurus langsung oleh pihak {parent?.schoolName ? <b>{parent.schoolName}</b> : "sekolah"}, jadi tidak ada tagihan yang perlu dibayar melalui portal ini.
                         Anda tetap bisa memantau progres, kehadiran, dan E-Rapot.
                     </p>
                     <Link href="/ortu/progres" className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:underline">

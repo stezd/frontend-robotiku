@@ -1,9 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { CalendarCheck, Wallet, GraduationCap, ClipboardList, FileText, ChevronRight, CheckCircle2, Building2 } from "lucide-react";
+import { CalendarCheck, Wallet, GraduationCap, ClipboardList, ChevronRight, CheckCircle2, Building2 } from "lucide-react";
 import { api, type ApiEnvelope } from "@/lib/api";
 import { ParentShell } from "@/components/ortu/ParentShell";
 import { PageHeader } from "@/components/ui/page-header";
@@ -11,9 +12,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParentGuard } from "@/lib/use-parent-guard";
+import { useParent } from "@/lib/parent-store";
 
 type Progress = {
-    student: { id: number; name: string; student_code: string; status: string };
+    student: { id: number; name: string; student_code: string; status: string; school?: string | null };
     summary: { hadir: number; izin: number; tidak_hadir: number; total_sesi: number };
     attendances: unknown[];
 };
@@ -24,6 +26,7 @@ const COLORS = { hadir: "#10b981", izin: "#3b82f6", tidak_hadir: "#ef4444" };
 
 export default function OrtuDashboard() {
     const { parent, ready } = useParentGuard();
+    const updateSchoolName = useParent((s) => s.updateSchoolName);
     const selfManaged = !!parent?.selfManaged;
 
     const progQ = useQuery({
@@ -45,6 +48,12 @@ export default function OrtuDashboard() {
             (await api.post<ApiEnvelope<Rapot[]>>("/e-rapot/parent", { student_id: parent!.studentId, phone: parent!.phone })).data.data,
     });
 
+    useEffect(() => {
+        if (progQ.data?.student?.school && !parent?.schoolName) {
+            updateSchoolName(progQ.data.student.school);
+        }
+    }, [progQ.data?.student?.school, parent?.schoolName, updateSchoolName]);
+
     if (!ready || !parent) {
         return (
             <ParentShell>
@@ -56,6 +65,7 @@ export default function OrtuDashboard() {
     const s = progQ.data?.summary;
     const belumLunas = (invQ.data ?? []).filter((i) => i.status !== "lunas").length;
     const rapotCount = rapotQ.data?.length ?? 0;
+    const schoolName = parent?.schoolName || progQ.data?.student?.school;
 
     const pie = s
         ? [
@@ -83,40 +93,49 @@ export default function OrtuDashboard() {
                 <div className="mt-4 space-y-6">
                     {/* KPI */}
                     <div className={`grid gap-4 sm:grid-cols-2 ${selfManaged ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
-                        <Kpi icon={<ClipboardList className="h-5 w-5" />} label="Total Sesi" value={s.total_sesi} tint="bg-slate-100 text-slate-700" />
-                        <Kpi icon={<CalendarCheck className="h-5 w-5" />} label="Hadir" value={s.hadir} tint="bg-emerald-100 text-emerald-700" />
-                        {!selfManaged && <Kpi icon={<Wallet className="h-5 w-5" />} label="Tagihan Belum Lunas" value={belumLunas} tint="bg-amber-100 text-amber-700" />}
-                        <Kpi icon={<GraduationCap className="h-5 w-5" />} label="E-Rapot" value={rapotCount} tint="bg-blue-100 text-blue-700" />
+                        <Kpi href="/ortu/progres" icon={<ClipboardList className="h-5 w-5" />} label="Total Sesi" value={s.total_sesi} tint="bg-slate-100 text-slate-700" />
+                        <Kpi href="/ortu/progres" icon={<CalendarCheck className="h-5 w-5" />} label="Hadir" value={s.hadir} tint="bg-emerald-100 text-emerald-700" />
+                        {!selfManaged && <Kpi href="/ortu/tagihan" icon={<Wallet className="h-5 w-5" />} label="Tagihan Belum Lunas" value={belumLunas} tint="bg-amber-100 text-amber-700" />}
+                        <Kpi href="/ortu/rapot" icon={<GraduationCap className="h-5 w-5" />} label="E-Rapot" value={rapotCount} tint="bg-blue-100 text-blue-700" />
                     </div>
 
                     <div className="grid gap-6 lg:grid-cols-3">
                         {/* Chart kehadiran */}
-                        <Card className="border-2 p-5 lg:col-span-2">
-                            <h3 className="mb-4 flex items-center gap-1.5 text-sm font-semibold"><CalendarCheck className="h-4 w-4" /> Rekap Kehadiran</h3>
-                            {pie.length ? (
-                                <div className="flex flex-col items-center gap-6 sm:flex-row">
-                                    <div className="h-52 w-52">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <PieChart>
-                                                <Pie data={pie} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>
-                                                    {pie.map((d) => <Cell key={d.key} fill={COLORS[d.key as keyof typeof COLORS]} />)}
-                                                </Pie>
-                                                <Tooltip />
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                    <div className="flex-1 space-y-2">
-                                        {pie.map((d) => (
-                                            <div key={d.key} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-                                                <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ background: COLORS[d.key as keyof typeof COLORS] }} /> {d.name}</span>
-                                                <span className="font-semibold">{d.value} sesi</span>
-                                            </div>
-                                        ))}
-                                    </div>
+                        <Card className="flex flex-col justify-between border-2 p-5 lg:col-span-2">
+                            <div>
+                                <div className="mb-4 flex items-center justify-between">
+                                    <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+                                        <CalendarCheck className="h-4 w-4" /> Rekap Kehadiran
+                                    </h3>
+                                    <Link href="/ortu/progres" className="flex items-center gap-0.5 text-xs font-semibold text-primary hover:underline">
+                                        Lihat Progres <ChevronRight className="h-3.5 w-3.5" />
+                                    </Link>
                                 </div>
-                            ) : (
-                                <p className="py-10 text-center text-sm text-muted-foreground">Belum ada data kehadiran.</p>
-                            )}
+                                {pie.length ? (
+                                    <div className="flex flex-col items-center gap-6 sm:flex-row">
+                                        <div className="h-52 w-52">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <PieChart>
+                                                    <Pie data={pie} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>
+                                                        {pie.map((d) => <Cell key={d.key} fill={COLORS[d.key as keyof typeof COLORS]} />)}
+                                                    </Pie>
+                                                    <Tooltip />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                        <div className="flex-1 space-y-2">
+                                            {pie.map((d) => (
+                                                <div key={d.key} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
+                                                    <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ background: COLORS[d.key as keyof typeof COLORS] }} /> {d.name}</span>
+                                                    <span className="font-semibold">{d.value} sesi</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="py-10 text-center text-sm text-muted-foreground">Belum ada data kehadiran.</p>
+                                )}
+                            </div>
                         </Card>
 
                         {/* Tagihan / info pembayaran */}
@@ -124,9 +143,9 @@ export default function OrtuDashboard() {
                             <Card className="flex flex-col border-2 p-5">
                                 <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold"><Building2 className="h-4 w-4" /> Pembayaran</h3>
                                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-                                    Pendaftaran &amp; pembayaran ananda dikelola langsung oleh pihak sekolah, jadi tidak ada tagihan di portal ini.
+                                    Pendaftaran &amp; pembayaran ananda dikelola langsung oleh pihak {schoolName ? <b>{schoolName}</b> : "sekolah"}, jadi tidak ada tagihan di portal ini.
                                 </div>
-                                <p className="mt-auto pt-3 text-xs text-muted-foreground">Hubungi pihak sekolah untuk urusan biaya.</p>
+                                <p className="mt-auto pt-3 text-xs text-muted-foreground">Hubungi pihak {schoolName || "sekolah"} untuk urusan biaya.</p>
                             </Card>
                         ) : (
                             <Card className="flex flex-col border-2 p-5">
@@ -148,22 +167,19 @@ export default function OrtuDashboard() {
                             </Card>
                         )}
                     </div>
-
-                    {/* Shortcut */}
-                    <div className={`grid gap-4 ${selfManaged ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
-                        <ShortcutCard href="/ortu/progres" icon={<ClipboardList className="h-5 w-5" />} title="Progres Belajar" desc="Kehadiran & catatan trainer" />
-                        {!selfManaged && <ShortcutCard href="/ortu/tagihan" icon={<Wallet className="h-5 w-5" />} title="Tagihan" desc="Bayar & unggah bukti" />}
-                        <ShortcutCard href="/ortu/rapot" icon={<FileText className="h-5 w-5" />} title="E-Rapot" desc="Unduh rapor per semester" />
-                    </div>
                 </div>
             )}
         </ParentShell>
     );
 }
 
-function Kpi({ icon, label, value, tint }: { icon: React.ReactNode; label: string; value: number; tint: string }) {
-    return (
-        <Card className="border-2 p-4">
+function Kpi({
+    icon, label, value, tint, href,
+}: {
+    icon: React.ReactNode; label: string; value: number; tint: string; href?: string;
+}) {
+    const content = (
+        <Card className={`border-2 p-4 transition-all duration-150 ${href ? "hover:border-primary/40 hover:shadow-sm" : ""}`}>
             <div className="flex items-center gap-3">
                 <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${tint}`}>{icon}</span>
                 <div>
@@ -173,33 +189,6 @@ function Kpi({ icon, label, value, tint }: { icon: React.ReactNode; label: strin
             </div>
         </Card>
     );
-}
 
-function ShortcutCard({
-    href, icon, title, desc, tint = "primary",
-}: {
-    href: string; icon: React.ReactNode; title: string; desc: string; tint?: "primary" | "emerald" | "amber" | "blue";
-}) {
-    const tints: Record<string, { icon: string; ring: string }> = {
-        primary: { icon: "bg-primary/10 text-primary", ring: "hover:border-primary/40" },
-        emerald: { icon: "bg-emerald-100 text-emerald-600", ring: "hover:border-emerald-300" },
-        amber: { icon: "bg-amber-100 text-amber-600", ring: "hover:border-amber-300" },
-        blue: { icon: "bg-blue-100 text-blue-600", ring: "hover:border-blue-300" },
-    };
-    const t = tints[tint];
-
-    return (
-        <Link href={href} className="block">
-            <Card className={`group flex !flex-row items-center gap-4 border-2 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${t.ring}`}>
-                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${t.icon} transition-transform duration-200 group-hover:scale-105`}>{icon}</span>
-                <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold">{title}</div>
-                    <div className="truncate text-xs text-muted-foreground">{desc}</div>
-                </div>
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-all duration-200 group-hover:bg-primary group-hover:text-primary-foreground">
-                    <ChevronRight className="h-4 w-4" />
-                </span>
-            </Card>
-        </Link>
-    );
+    return href ? <Link href={href} className="block">{content}</Link> : content;
 }

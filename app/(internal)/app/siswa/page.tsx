@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { Search, Eye, ChevronLeft, ChevronRight, Loader2, Info, Plus, Download, FileText } from "lucide-react";
+import { Search, Eye, ChevronLeft, ChevronRight, Loader2, Info, Plus, Download, FileText, Pencil } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,16 +20,18 @@ import { api, apiError, type ApiEnvelope } from "@/lib/api";
 import { InternalShell } from "@/components/internal/InternalShell";
 import { PageHeader } from "@/components/ui/page-header";
 import { DrawerHeader } from "@/components/ui/drawer-header";
+import { StudentBiodataModal } from "@/components/student/StudentBiodataModal";
+import { useAuth } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
 
-type Parent = { id: number; name: string; phone: string; greeting?: string | null } | null;
+type Parent = { id: number; name: string; phone: string; greeting?: string | null; phone_alt?: string | null } | null;
 type School = { id: number; name: string } | null;
 type Kelas = { id: number; name: string };
 type Log = { id: number; old_status: string | null; new_status: string; note: string | null; changed_by_type: string; changed_by: number | null; created_at: string };
 type Student = {
     id: number; student_code: string; name: string; gender: "L" | "P"; status: string;
     registration_type: "mandiri" | "instansi"; school_grade: string | null; school_origin: string | null;
-    birth_date: string | null; shirt_size: string | null; allergy_notes: string | null;
+    birth_date: string | null; shirt_size: string | null; address?: string | null; allergy_notes: string | null;
     photo_permission: boolean; is_verified: boolean; created_at: string;
     parent: Parent; school: School; program?: { id: number; name: string } | null;
     classes?: Kelas[]; statusLogs?: Log[];
@@ -125,14 +127,20 @@ function SiswaInner() {
                 <div className="flex flex-col gap-3 border-b p-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="relative w-full lg:w-80">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input className="pl-9" placeholder="Cari nama atau kode siswa…" value={search} onChange={(e) => { setSearch(e.target.value); reset(); }} />
+                        <Input
+                            className="pl-9"
+                            placeholder="Cari nama atau kode siswa…"
+                            aria-label="Cari nama atau kode siswa"
+                            value={search}
+                            onChange={(e) => { setSearch(e.target.value); reset(); }}
+                        />
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         {filters.map((f) => (
                             <Button key={f} size="sm" variant={status === f ? "default" : "outline"} className="capitalize" onClick={() => { setStatus(f); reset(); }}>{f}</Button>
                         ))}
                         <Select value={verifikasi} onValueChange={(v) => { setVerifikasi(v ?? "verified"); reset(); }}>
-                            <SelectTrigger className="h-8 w-[155px]"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="h-8 w-[155px]" aria-label="Filter status verifikasi"><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="verified">Terverifikasi</SelectItem>
                                 <SelectItem value="unverified">Belum Verifikasi</SelectItem>
@@ -140,7 +148,7 @@ function SiswaInner() {
                             </SelectContent>
                         </Select>
                         <Select value={tipe} onValueChange={(v) => { setTipe(v ?? "semua"); reset(); }}>
-                            <SelectTrigger className="h-8 w-[130px]"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="h-8 w-[130px]" aria-label="Filter tipe pendaftaran"><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="semua">Semua tipe</SelectItem>
                                 <SelectItem value="mandiri">Mandiri</SelectItem>
@@ -176,7 +184,14 @@ function SiswaInner() {
                                 <TableCell className="text-sm text-muted-foreground">{s.school?.name ?? s.school_origin ?? "—"}</TableCell>
                                 <TableCell><Badge variant="outline" className={cn("capitalize", statusCls[s.status])}>{s.status}</Badge></TableCell>
                                 <TableCell className="text-right">
-                                    <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setSelectedId(s.id); }}><Eye className="h-4 w-4" /></Button>
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        aria-label={`Lihat detail ${s.name}`}
+                                        onClick={(e) => { e.stopPropagation(); setSelectedId(s.id); }}
+                                    >
+                                        <Eye className="h-4 w-4" />
+                                    </Button>
                                 </TableCell>
                             </TableRow>
                         ))}
@@ -190,8 +205,24 @@ function SiswaInner() {
                     <div className="flex items-center justify-between border-t p-4 text-sm text-muted-foreground">
                         <span>Total {p.total} · Halaman {p.current_page}/{p.last_page}</span>
                         <div className="flex gap-1">
-                            <Button size="icon" variant="outline" disabled={p.current_page <= 1} onClick={() => setPage((x) => x - 1)}><ChevronLeft className="h-4 w-4" /></Button>
-                            <Button size="icon" variant="outline" disabled={p.current_page >= p.last_page} onClick={() => setPage((x) => x + 1)}><ChevronRight className="h-4 w-4" /></Button>
+                            <Button
+                                size="icon"
+                                variant="outline"
+                                aria-label="Halaman sebelumnya"
+                                disabled={p.current_page <= 1}
+                                onClick={() => setPage((x) => x - 1)}
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                size="icon"
+                                variant="outline"
+                                aria-label="Halaman berikutnya"
+                                disabled={p.current_page >= p.last_page}
+                                onClick={() => setPage((x) => x + 1)}
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
                         </div>
                     </div>
                 )}
@@ -208,6 +239,9 @@ function SiswaInner() {
 }
 
 function Detail({ student, onChanged }: { student: Student; onChanged: () => void }) {
+    const actor = useAuth((s) => s.actor);
+    const canEdit = actor?.kind === "user" && ["super_admin", "admin"].includes(actor.role);
+    const [editOpen, setEditOpen] = useState(false);
     const [status, setStatus] = useState(student.status);
     const [note, setNote] = useState("");
     const [err, setErr] = useState<string | null>(null);
@@ -226,22 +260,53 @@ function Detail({ student, onChanged }: { student: Student; onChanged: () => voi
         { l: "Tipe pendaftaran", v: student.registration_type },
         { l: "Asal sekolah", v: student.school?.name ?? student.school_origin ?? "—" },
         { l: "Kelas asal", v: student.school_grade ?? "—" },
+        { l: "Alamat domisili", v: student.address || "—" },
         { l: "Izin foto/video", v: student.photo_permission ? "Diizinkan" : "Tidak diizinkan" },
         { l: "Kelas Robotiku", v: student.classes?.map((c) => c.name).join(", ") || "—" },
         { l: "Terdaftar sejak", v: tglLong(student.created_at) },
         { l: "Orang tua", v: student.parent ? `${student.parent.greeting ? student.parent.greeting + " " : ""}${student.parent.name}` : "—" },
         { l: "No. WhatsApp", v: student.parent?.phone ?? "—" },
+        { l: "No. Alternatif", v: student.parent?.phone_alt ?? "—" },
     ];
 
     return (
         <div>
-            <DrawerHeader title={student.name} subtitle={student.student_code}
+            <DrawerHeader
+                title={student.name}
+                subtitle={student.student_code}
                 badge={
                     <div className="flex items-center gap-1.5">
                         {!student.is_verified && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Belum verifikasi</Badge>}
                         <Badge variant="outline" className={cn("capitalize", statusCls[student.status])}>{student.status}</Badge>
                     </div>
-                } />
+                }
+                action={
+                    canEdit ? (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 font-medium"
+                            onClick={() => setEditOpen(true)}
+                        >
+                            <Pencil className="h-3.5 w-3.5" />
+                            <span>Edit Biodata</span>
+                        </Button>
+                    ) : null
+                }
+            />
+
+            {canEdit && (
+                <StudentBiodataModal
+                    open={editOpen}
+                    onOpenChange={setEditOpen}
+                    student={{
+                        ...student,
+                        program_id: student.program?.id,
+                    }}
+                    endpoint={`/siswa/${student.id}`}
+                    onSuccess={onChanged}
+                />
+            )}
 
             <div className="space-y-7">
                 <div className="grid grid-cols-2 gap-3">

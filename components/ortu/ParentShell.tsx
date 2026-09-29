@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Wallet, ClipboardList, FileText, LogOut } from "lucide-react";
+import { LayoutDashboard, Wallet, ClipboardList, FileText, LogOut, Building2 } from "lucide-react";
 import { useParent } from "@/lib/parent-store";
 import { useConfirm } from "@/components/ui/confirm";
 import { BottomNav, type NavItem } from "@/components/ui/BottomNav";
@@ -45,8 +45,14 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
                     <span className="font-semibold">Portal Orang Tua</span>
                 </div>
                 <div className="border-b px-4 py-3">
-                    <div className="text-sm font-medium">{parent?.name ?? "Anak"}</div>
+                    <div className="truncate text-sm font-semibold">{parent?.name ?? "Anak"}</div>
                     <div className="font-mono text-xs text-muted-foreground">{parent?.studentCode ?? "—"}</div>
+                    {parent?.schoolName && (
+                        <div className="mt-1.5 flex items-center gap-1.5 rounded-md bg-muted/60 px-2 py-1 text-xs font-medium text-foreground/85">
+                            <Building2 className="h-3.5 w-3.5 shrink-0 text-primary" />
+                            <span className="truncate" title={parent.schoolName}>{parent.schoolName}</span>
+                        </div>
+                    )}
                 </div>
                 <nav className="flex-1 space-y-1 p-2">
                     {nav.map((it) => {
@@ -70,9 +76,17 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
                 <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/80 px-4 backdrop-blur">
                     <div className="flex items-center gap-2 md:hidden">
                         <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">R</div>
-                        <div className="leading-tight">
-                            <div className="text-sm font-semibold">{parent?.name ?? "Anak"}</div>
-                            <div className="font-mono text-[10px] text-muted-foreground">{parent?.studentCode ?? "—"}</div>
+                        <div className="min-w-0 leading-tight">
+                            <div className="truncate text-sm font-semibold max-w-[170px] sm:max-w-xs">{parent?.name ?? "Anak"}</div>
+                            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                <span className="font-mono">{parent?.studentCode ?? "—"}</span>
+                                {parent?.schoolName && (
+                                    <>
+                                        <span>•</span>
+                                        <span className="truncate max-w-[120px] font-sans font-medium text-foreground/80" title={parent.schoolName}>{parent.schoolName}</span>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
                     <button onClick={keluar} title="Keluar"

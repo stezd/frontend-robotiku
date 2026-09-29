@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Award, ChevronRight } from "lucide-react";
 import { api, type ApiEnvelope } from "@/lib/api";
 import { ParentShell } from "@/components/ortu/ParentShell";
-import { useParent } from "@/lib/parent-store";
+import { useParentGuard } from "@/lib/use-parent-guard";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,18 +17,29 @@ type Rapot = {
 const GRADE_CLS: Record<string, string> = { A: "bg-emerald-500", B: "bg-lime-500", C: "bg-amber-500", D: "bg-orange-500", E: "bg-red-500" };
 
 export default function OrtuRapot() {
-    const parent = useParent((s) => s.parent)!;
+    const { parent, ready } = useParentGuard();
 
     const { data, isLoading } = useQuery({
         queryKey: ["ortu-rapot", parent?.studentId],
         enabled: !!parent?.studentId,
         queryFn: async () =>
-            (await api.post<ApiEnvelope<Rapot[]>>("/e-rapot/parent", { student_id: parent?.studentId, phone: parent.phone })).data.data,
+            (await api.post<ApiEnvelope<Rapot[]>>("/e-rapot/parent", { student_id: parent?.studentId, phone: parent?.phone })).data.data,
     });
+
+    if (!ready || !parent) {
+        return (
+            <ParentShell>
+                <div className="space-y-4">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
+            </ParentShell>
+        );
+    }
 
     return (
         <ParentShell>
-            <PageHeader title="E-Rapot" subtitle="Perkembangan skill & sikap ananda per semester." />
+            <PageHeader
+                title="E-Rapot"
+                subtitle={parent?.schoolName ? `Perkembangan ananda di ${parent.schoolName} per semester.` : "Perkembangan skill & sikap ananda per semester."}
+            />
             {isLoading ? (
                 <div className="space-y-4">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
             ) : (

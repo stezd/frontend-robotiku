@@ -4,12 +4,20 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { Search, Loader2, ArrowLeft, ChevronRight, Users, Wallet } from "lucide-react";
+import { Search, Loader2, ArrowLeft, ChevronRight, Users, Wallet, Building2 } from "lucide-react";
 import { api, apiError, type ApiEnvelope } from "@/lib/api";
 import { useParent } from "@/lib/parent-store";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
 
-type Student = { id: number; student_code: string; name: string; verified: boolean; self_managed?: boolean; parent: { phone: string } };
+type Student = {
+    id: number;
+    student_code: string;
+    name: string;
+    verified: boolean;
+    self_managed?: boolean;
+    school?: string | null;
+    parent: { phone: string };
+};
 
 export default function OrtuLookupPage() {
     const router = useRouter();
@@ -21,7 +29,14 @@ export default function OrtuLookupPage() {
 
     const pick = (s: Student) => {
         if (!s.verified) { setBlocked(s); return; }
-        setParent({ studentId: s.id, name: s.name, studentCode: s.student_code, phone: s.parent.phone, selfManaged: s.self_managed });
+        setParent({
+            studentId: s.id,
+            name: s.name,
+            studentCode: s.student_code,
+            phone: s.parent.phone,
+            selfManaged: s.self_managed,
+            schoolName: s.school ?? null,
+        });
         router.push(s.self_managed ? "/ortu/dashboard" : "/ortu/tagihan");
     };
 
@@ -36,7 +51,11 @@ export default function OrtuLookupPage() {
         onSuccess: (res) => {
             setMsg(null); setBlocked(null);
             const list = res.data.students;
-            list.length === 1 ? pick(list[0]) : setStudents(list);
+            if (list.length === 1) {
+                pick(list[0]);
+            } else {
+                setStudents(list);
+            }
         },
         onError: (e) => { setStudents(null); setBlocked(null); setMsg(apiError(e, "Data tidak ditemukan.")); },
     });
@@ -60,6 +79,7 @@ export default function OrtuLookupPage() {
                         <div className="relative min-w-0 flex-1">
                             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5f5e5a]" strokeWidth={2.5} />
                             <input
+                                aria-label="Nama anak atau nomor HP terdaftar"
                                 className="w-full rounded-md border-2 border-black bg-white py-2.5 pl-9 pr-3 text-base font-medium outline-none transition focus:shadow-[3px_3px_0_0_#000]"
                                 placeholder="Nama anak / 08xxxx" value={query} onChange={(e) => setQuery(e.target.value)} />
                         </div>
@@ -74,7 +94,7 @@ export default function OrtuLookupPage() {
                         <div className="mt-4 rounded-xl border-[3px] border-black bg-[#ffd23f] p-4 shadow-[4px_4px_0_0_#000]">
                             <p className="font-display font-extrabold">Belum bisa masuk</p>
                             <p className="mt-1 text-sm font-medium">
-                                Pembayaran <b>{blocked.name}</b> belum terverifikasi. Selesaikan pembayaran dan tunggu verifikasi admin.
+                                Pembayaran <b>{blocked.name}</b>{blocked.school ? ` (${blocked.school})` : ""} belum terverifikasi. Selesaikan pembayaran dan tunggu verifikasi admin.
                             </p>
                             <Link href="/bayar"
                                 className="mt-3 inline-flex items-center gap-2 rounded-md border-2 border-black bg-[#9b2d9b] px-4 py-2 font-display text-sm font-extrabold text-white shadow-[3px_3px_0_0_#000] transition active:translate-y-[2px] active:shadow-none">
@@ -88,11 +108,22 @@ export default function OrtuLookupPage() {
                             <p className="font-display text-sm font-bold">Pilih anak:</p>
                             {students.map((s) => (
                                 <button key={s.id} onClick={() => pick(s)}
-                                    className="flex w-full items-center justify-between gap-2 rounded-xl border-[3px] border-black bg-white p-3 text-left shadow-[4px_4px_0_0_#000] transition active:translate-y-[3px] active:shadow-none">
-                                    <span className="min-w-0 truncate font-display font-extrabold">{s.name}</span>
-                                    <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-[#5f5e5a]">
-                                        {!s.verified && <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] text-red-700">belum lunas</span>}
-                                        {s.student_code} <ChevronRight className="h-4 w-4" />
+                                    className="flex w-full items-center justify-between gap-3 rounded-xl border-[3px] border-black bg-white p-3.5 text-left shadow-[4px_4px_0_0_#000] transition hover:bg-slate-50 active:translate-y-[3px] active:shadow-none">
+                                    <div className="min-w-0 flex-1">
+                                        <span className="block truncate font-display font-extrabold">{s.name}</span>
+                                        {s.school ? (
+                                            <span className="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+                                                <Building2 className="h-3.5 w-3.5 shrink-0 text-primary" />
+                                                <span className="truncate">{s.school}</span>
+                                            </span>
+                                        ) : (
+                                            <span className="mt-0.5 block text-xs font-medium text-[#5f5e5a]">Jalur Mandiri</span>
+                                        )}
+                                    </div>
+                                    <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[#5f5e5a]">
+                                        {!s.verified && <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700">belum lunas</span>}
+                                        <span className="font-mono text-[11px]">{s.student_code}</span>
+                                        <ChevronRight className="h-4 w-4" />
                                     </span>
                                 </button>
                             ))}

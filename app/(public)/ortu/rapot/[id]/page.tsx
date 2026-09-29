@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Download, Loader2, Award, FileText, PenLine } from "lucide-react";
 import { api, type ApiEnvelope } from "@/lib/api";
 import { ParentShell } from "@/components/ortu/ParentShell";
-import { useParent } from "@/lib/parent-store";
+import { useParentGuard } from "@/lib/use-parent-guard";
 import { AuthImage } from "@/components/ui/auth-image";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,20 +35,31 @@ const GRADE_LABEL: Record<string, string> = { A: "Sangat Baik", B: "Baik", C: "C
 
 export default function DetailRapot({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
-    const parent = useParent((s) => s.parent)!;
+    const { parent, ready } = useParentGuard();
     const [busy, setBusy] = useState(false);
 
     const { data, isLoading } = useQuery({
         queryKey: ["ortu-rapot", parent?.studentId],
         enabled: !!parent?.studentId,
         queryFn: async () =>
-            (await api.post<ApiEnvelope<Rapot[]>>("/e-rapot/parent", { student_id: parent?.studentId, phone: parent.phone })).data.data,
+            (await api.post<ApiEnvelope<Rapot[]>>("/e-rapot/parent", { student_id: parent?.studentId, phone: parent?.phone })).data.data,
     });
+
+    if (!ready || !parent) {
+        return (
+            <ParentShell>
+                <div className="space-y-4">
+                    <Skeleton className="h-10 w-32" />
+                    <Skeleton className="h-72 rounded-xl" />
+                </div>
+            </ParentShell>
+        );
+    }
 
     const r = data?.find((x) => String(x.id) === id);
 
     const download = async () => {
-        if (!r) return;
+        if (!r || !parent) return;
         setBusy(true);
         try {
             const res = await api.post(`/e-rapot/${r.id}/parent-pdf`, { phone: parent.phone }, { responseType: "blob" });

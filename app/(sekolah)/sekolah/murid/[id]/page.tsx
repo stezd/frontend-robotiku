@@ -4,13 +4,14 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { ArrowLeft, ClipboardList, CalendarCheck, GraduationCap, Wallet, Download, Loader2, UserRound } from "lucide-react";
+import { ArrowLeft, ClipboardList, CalendarCheck, GraduationCap, Wallet, Download, Loader2, UserRound, Pencil } from "lucide-react";
 import { api, type ApiEnvelope } from "@/lib/api";
 import { SchoolShell } from "@/components/sekolah/SchoolShell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StudentBiodataModal } from "@/components/student/StudentBiodataModal";
 
 type Att = { id: number; status: string; score: string | null; trainer_name: string | null; attended_at: string };
 type Progress = {
@@ -19,11 +20,27 @@ type Progress = {
     attendances: Att[];
 };
 type Bio = {
-    id: number; name: string; student_code: string; gender: "L" | "P"; birth_date: string | null;
-    shirt_size: string | null; school_grade: string | null; allergy_notes: string | null;
-    photo_permission: boolean; registration_type: string; created_at: string;
-    parent?: { name: string | null; phone: string | null; greeting?: string | null } | null;
-    program?: { name: string } | null;
+    id: number;
+    name: string;
+    student_code: string;
+    gender: "L" | "P";
+    birth_date: string | null;
+    shirt_size: string | null;
+    school_origin?: string | null;
+    school_grade: string | null;
+    address?: string | null;
+    allergy_notes: string | null;
+    photo_permission: boolean;
+    registration_type: string;
+    created_at: string;
+    program_id?: number | null;
+    parent?: {
+        name: string | null;
+        phone: string | null;
+        greeting?: string | null;
+        phone_alt?: string | null;
+    } | null;
+    program?: { id?: number; name: string } | null;
 };
 type Rapot = {
     id: number; semester: number; year: number;
@@ -66,6 +83,7 @@ const PIE = { hadir: "#10b981", izin: "#3b82f6", tidak_hadir: "#ef4444" };
 
 export default function SekolahMuridDetail({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
+    const [editOpen, setEditOpen] = useState(false);
 
     const progQ = useQuery({ queryKey: ["sekolah-murid-progress", id], queryFn: async () => (await api.get<ApiEnvelope<Progress>>(`/sekolah/murid/${id}/progress`)).data.data });
     const bioQ = useQuery({ queryKey: ["sekolah-murid-bio", id], queryFn: async () => (await api.get<ApiEnvelope<Bio>>(`/sekolah/murid/${id}`)).data.data });
@@ -115,10 +133,23 @@ export default function SekolahMuridDetail({ params }: { params: Promise<{ id: s
                         <Skeleton className="h-48 rounded-xl" />
                     ) : (
                         <Card className="border-2 p-5">
-                            <h3 className="mb-4 flex items-center gap-1.5 text-sm font-semibold">
-                                <UserRound className="h-4 w-4" /> Biodata Murid
-                                <span className="ml-auto text-xs font-normal text-muted-foreground">Data saat pendaftaran</span>
-                            </h3>
+                            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                                <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+                                    <UserRound className="h-4 w-4 text-primary" /> Biodata Murid
+                                </h3>
+                                <div className="flex items-center gap-3">
+                                    <span className="hidden text-xs font-normal text-muted-foreground sm:inline">Data pendaftaran & wali</span>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 gap-1.5 font-medium"
+                                        onClick={() => setEditOpen(true)}
+                                    >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                        <span>Edit Biodata</span>
+                                    </Button>
+                                </div>
+                            </div>
                             <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                 <DataItem label="Nama Lengkap" value={bioQ.data.name} />
                                 <DataItem label="Kode Murid" value={<span className="font-mono">{bioQ.data.student_code}</span>} />
@@ -126,11 +157,21 @@ export default function SekolahMuridDetail({ params }: { params: Promise<{ id: s
                                 <DataItem label="Tanggal Lahir" value={bioQ.data.birth_date ? `${tglLong(bioQ.data.birth_date)}${usia(bioQ.data.birth_date) != null ? ` · ${usia(bioQ.data.birth_date)} th` : ""}` : "-"} />
                                 <DataItem label="Ukuran Baju" value={bioQ.data.shirt_size} />
                                 <DataItem label="Kelas Asal" value={bioQ.data.school_grade} />
+                                <DataItem label="Asal Sekolah" value={bioQ.data.school_origin} />
                                 <DataItem label="Program" value={bioQ.data.program?.name} />
+                                <DataItem label="Alamat" value={bioQ.data.address} />
                                 <DataItem label="Tipe Pendaftaran" value={<span className="capitalize">{bioQ.data.registration_type}</span>} />
                                 <DataItem label="Izin Foto/Video" value={bioQ.data.photo_permission ? "Diizinkan" : "Tidak diizinkan"} />
-                                <DataItem label="Orang Tua" value={bioQ.data.parent?.name} />
+                                <DataItem
+                                    label="Orang Tua"
+                                    value={
+                                        bioQ.data.parent?.name
+                                            ? `${bioQ.data.parent.greeting ? `${bioQ.data.parent.greeting} ` : ""}${bioQ.data.parent.name}`
+                                            : "-"
+                                    }
+                                />
                                 <DataItem label="No. WhatsApp" value={bioQ.data.parent?.phone} />
+                                <DataItem label="No. Alternatif" value={bioQ.data.parent?.phone_alt} />
                                 <DataItem label="Terdaftar Sejak" value={tglLong(bioQ.data.created_at)} />
                             </dl>
                             {bioQ.data.allergy_notes && (
@@ -138,6 +179,20 @@ export default function SekolahMuridDetail({ params }: { params: Promise<{ id: s
                                     <span className="font-medium">Catatan alergi: </span>{bioQ.data.allergy_notes}
                                 </div>
                             )}
+
+                            <StudentBiodataModal
+                                open={editOpen}
+                                onOpenChange={setEditOpen}
+                                student={{
+                                    ...bioQ.data,
+                                    program_id: bioQ.data.program_id ?? bioQ.data.program?.id ?? null,
+                                }}
+                                endpoint={`/sekolah/murid/${id}`}
+                                onSuccess={() => {
+                                    bioQ.refetch();
+                                    progQ.refetch();
+                                }}
+                            />
                         </Card>
                     )}
 
