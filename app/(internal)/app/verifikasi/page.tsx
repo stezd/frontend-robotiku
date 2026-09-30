@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { api, apiError, type ApiEnvelope } from "@/lib/api";
+import { protectedFileUrl } from "@/lib/media";
 import { InternalShell } from "@/components/internal/InternalShell";
 import { useConfirm } from "@/components/ui/confirm";
 import { cn } from "@/lib/utils";
@@ -151,9 +152,8 @@ function Detail({ payment, onDone }: { payment: Payment; onDone: () => void }) {
     const proof = useQuery({
         queryKey: ["proof", payment.id],
         queryFn: async () => {
-            const res = await api.get(`/bayar/payments/${payment.id}/proof`, { responseType: "blob" });
-            const blob = res.data as Blob;
-            return { url: URL.createObjectURL(blob), isPdf: blob.type.includes("pdf") };
+            const { url, mime } = await protectedFileUrl(`/bayar/payments/${payment.id}/proof`);
+            return { url, isPdf: mime.includes("pdf") };
         },
     });
     const verify = useMutation({

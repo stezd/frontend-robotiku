@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { api } from "@/lib/api";
+import { protectedMediaUrl } from "@/lib/media";
 import { AuthImage } from "@/components/ui/auth-image";
 import { FileText, ExternalLink, Loader2 } from "lucide-react";
 
@@ -12,7 +12,7 @@ export function ProofView({ path, className }: { path: string | null; className?
     const isPdf = path.toLowerCase().endsWith(".pdf");
     const open = async () => {
         setLoading(true);
-        try { const r = await api.get(`/media/${path}`, { responseType: "blob" }); window.open(URL.createObjectURL(r.data as Blob), "_blank"); }
+        try { window.open(await protectedMediaUrl(path), "_blank"); }
         finally { setLoading(false); }
     };
 

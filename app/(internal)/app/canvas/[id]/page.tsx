@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AuthImage } from "@/components/ui/auth-image";
-import { publicMediaUrl as fileUrl } from "@/lib/media";
+import { publicMediaUrl as fileUrl, protectedMediaUrl, protectedFileUrl } from "@/lib/media";
 
 const MapPicker = dynamic(() => import("@/components/ui/map-picker"), { ssr: false });
 
@@ -60,10 +60,7 @@ function Lightbox({ item, onClose }: { item: ViewerItem | null; onClose: () => v
     const blob = useQuery({
         queryKey: ["lightbox", item?.value],
         enabled: !!item?.protected,
-        queryFn: async () => {
-            const res = await api.get(`/media/${item!.value}`, { responseType: "blob" });
-            return URL.createObjectURL(res.data as Blob);
-        },
+        queryFn: () => protectedMediaUrl(item!.value),
     });
 
     useEffect(() => {
@@ -389,9 +386,10 @@ function MouCard({ schoolId, mous, onDone }: { schoolId: number; mous: Mou[]; on
         if (await confirm({ title: "Hapus MoU?", description: "Dokumen MoU ini akan dihapus.", confirmText: "Hapus", variant: "destructive" })) del.mutate(m.id);
     };
     const download = async (m: Mou) => {
-        const res = await api.get(`/canvas/mou/${m.id}/file`, { responseType: "blob" });
-        const url = URL.createObjectURL(res.data as Blob);
-        const a = document.createElement("a"); a.href = url; a.download = `mou-${m.id}`; a.click(); URL.revokeObjectURL(url);
+        // presigned URL dibuat dengan Content-Disposition: attachment → browser tetap mengunduh lintas origin
+        const { url } = await protectedFileUrl(`/canvas/mou/${m.id}/file`);
+        const a = document.createElement("a"); a.href = url; a.download = `mou-${m.id}`; a.click();
+        if (url.startsWith("blob:")) URL.revokeObjectURL(url);
     };
 
     return (
