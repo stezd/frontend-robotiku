@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, PlayCircle, CalendarPlus, MapPin, Camera, Loader2, RefreshCw, X, CheckCircle2, Clock, ChevronRight, CalendarDays } from "lucide-react";
+import { ArrowLeft, PlayCircle, CalendarPlus, MapPin, Camera, Loader2, RefreshCw, X, CheckCircle2, Clock, ChevronRight, CalendarDays, AlertTriangle } from "lucide-react";
 import { api, apiError, type ApiEnvelope } from "@/lib/api";
 import { InternalShell } from "@/components/internal/InternalShell";
 import { PageHeader } from "@/components/ui/page-header";
@@ -34,14 +34,23 @@ export default function KelasSesiPage() {
         queryFn: async () => (await api.get<ApiEnvelope<ClassSessions>>(`/sesi/kelas/${id}/list`)).data.data,
     });
 
+    const isEmptyClass = Boolean(data && data.class.active_count === 0);
+
     return (
         <InternalShell>
             <Link href="/app/sesi" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Kembali</Link>
             <PageHeader title={data?.class.name ?? "Sesi Kelas"} subtitle={data ? `${data.class.school ?? "Mandiri"} · ${data.class.program ?? "—"} · ${data.class.active_count} murid` : "Memuat…"} />
 
+            {isEmptyClass && (
+                <div role="alert" className="mt-4 flex items-center gap-2.5 rounded-lg border border-amber-200 bg-amber-50 p-3.5 text-sm text-amber-800">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                    <span>Kelas belum memiliki murid aktif. Murid harus ditambahkan ke kelas ini terlebih dahulu sebelum sesi dapat dimulai.</span>
+                </div>
+            )}
+
             <div className="mt-4 flex flex-wrap gap-2">
-                <Button onClick={() => setLiveOpen(true)}><PlayCircle className="mr-1.5 h-4 w-4" /> Sesi Langsung</Button>
-                <Button variant="outline" onClick={() => setManualOpen(true)}><CalendarPlus className="mr-1.5 h-4 w-4" /> Sesi Manual (Susulan)</Button>
+                <Button disabled={isEmptyClass || isLoading} onClick={() => setLiveOpen(true)}><PlayCircle className="mr-1.5 h-4 w-4" /> Sesi Langsung</Button>
+                <Button variant="outline" disabled={isEmptyClass || isLoading} onClick={() => setManualOpen(true)}><CalendarPlus className="mr-1.5 h-4 w-4" /> Sesi Manual (Susulan)</Button>
             </div>
 
             <div className="mt-5 space-y-2.5">
