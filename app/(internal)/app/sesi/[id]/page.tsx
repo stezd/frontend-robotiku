@@ -5,7 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Camera, X, Loader2, StopCircle, CheckCircle2, MapPin, RefreshCw, ChevronDown, AlertTriangle, Users, CalendarDays } from "lucide-react";
+import { ArrowLeft, Camera, X, Loader2, StopCircle, CheckCircle2, MapPin, RefreshCw, ChevronDown, AlertTriangle, Users, CalendarDays, Trash2 } from "lucide-react";
 import { api, apiError, type ApiEnvelope } from "@/lib/api";
 import { InternalShell } from "@/components/internal/InternalShell";
 import { AuthImage } from "@/components/ui/auth-image";
@@ -13,7 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const MapPreview = dynamic(() => import("@/components/ui/map-preview"), { ssr: false });
 
@@ -35,6 +35,7 @@ export default function SesiDetail() {
     const { id } = useParams<{ id: string }>();
     const router = useRouter();
     const [endOpen, setEndOpen] = useState(false);
+    const [cancelOpen, setCancelOpen] = useState(false);
 
     const { data, isLoading, error, refetch } = useQuery({
         queryKey: ["sesi", id],
@@ -72,12 +73,26 @@ export default function SesiDetail() {
                         </div>
                         {finished ? (
                             <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700"><CheckCircle2 className="mr-1 h-3 w-3" /> Selesai</Badge>
-                        ) : isManual ? (
-                            <Button size="sm" variant="outline" disabled={manualEnd.isPending} onClick={() => manualEnd.mutate()}>
-                                {manualEnd.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} Tandai Selesai
-                            </Button>
                         ) : (
-                            <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => setEndOpen(true)}><StopCircle className="mr-1.5 h-4 w-4" /> Selesai</Button>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-muted-foreground hover:bg-red-50 hover:text-red-600"
+                                    onClick={() => setCancelOpen(true)}
+                                >
+                                    <Trash2 className="mr-1.5 h-4 w-4" /> Batalkan Sesi
+                                </Button>
+                                {isManual ? (
+                                    <Button size="sm" variant="outline" disabled={manualEnd.isPending} onClick={() => manualEnd.mutate()}>
+                                        {manualEnd.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} Tandai Selesai
+                                    </Button>
+                                ) : (
+                                    <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => setEndOpen(true)}>
+                                        <StopCircle className="mr-1.5 h-4 w-4" /> Selesai
+                                    </Button>
+                                )}
+                            </div>
                         )}
                     </div>
                     <div className="h-2 bg-muted"><div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} /></div>
@@ -102,6 +117,7 @@ export default function SesiDetail() {
             </div>
 
             <EndDialog open={endOpen} sessionId={id} classId={data?.session.class_id} onClose={() => setEndOpen(false)} />
+            <CancelDialog open={cancelOpen} sessionId={id} backHref={backHref} onClose={() => setCancelOpen(false)} />
         </InternalShell>
     );
 }
@@ -259,6 +275,87 @@ function EndDialog({ open, sessionId, classId, onClose }: { open: boolean; sessi
                         {end.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <StopCircle className="mr-2 h-4 w-4" />} Selesai & Kirim Notifikasi
                     </Button>
                 </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function CancelDialog({
+    open,
+    sessionId,
+    backHref,
+    onClose,
+}: {
+    open: boolean;
+    sessionId: string;
+    backHref: string;
+    onClose: () => void;
+}) {
+    const router = useRouter();
+    const qc = useQueryClient();
+    const [msg, setMsg] = useState<string | null>(null);
+
+    const cancel = useMutation({
+        mutationFn: async () => api.delete(`/sesi/${sessionId}/batal`),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["sesi", sessionId] });
+            qc.invalidateQueries({ queryKey: ["kelas-sesi"] });
+            onClose();
+            router.push(backHref);
+        },
+        onError: (e) => setMsg(apiError(e, "Gagal membatalkan sesi.")),
+    });
+
+    const handleClose = () => {
+        if (!cancel.isPending) {
+            setMsg(null);
+            onClose();
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+            <DialogContent showCloseButton={!cancel.isPending} className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Batalkan Sesi Kelas Ini?</DialogTitle>
+                    <DialogDescription>
+                        Sesi akan dibatalkan dan seluruh data presensi serta foto yang baru dimasukkan pada sesi ini akan dihapus permanen. Kelas akan dibuka kembali untuk dapat dimulai ulang.
+                    </DialogDescription>
+                </DialogHeader>
+
+                {msg && (
+                    <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
+                        {msg}
+                    </p>
+                )}
+
+                <DialogFooter className="gap-2 sm:justify-end">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={cancel.isPending}
+                        onClick={handleClose}
+                    >
+                        Kembali
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        disabled={cancel.isPending}
+                        onClick={() => {
+                            setMsg(null);
+                            cancel.mutate();
+                        }}
+                    >
+                        {cancel.isPending ? (
+                            <>
+                                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Membatalkan…
+                            </>
+                        ) : (
+                            "Ya, Batalkan Sesi"
+                        )}
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
