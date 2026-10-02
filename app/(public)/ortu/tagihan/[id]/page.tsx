@@ -19,15 +19,26 @@ type Invoice = {
     discount_amount?: number; total_amount?: number; due_date?: string | null; status: string;
     payments?: Payment[];
 };
-type PaymentInfo = {
-    scheme: "v1_direct" | "v2_school" | "v3_collective";
-    type: string;
-    school_name?: string;
+type PaymentInfoDirect = {
+    scheme: "v1_direct";
+    type: "direct_robotiku";
+    bank_accounts: { id: number; bank_name: string; account_number: string; account_holder: string }[];
+};
+type PaymentInfoSchool = {
+    scheme: "v2_school";
+    type: "school_managed";
+    school_name?: string | null;
     bank_account?: string | null;
     qris_image?: string | null;
-    banner?: string;
-    bank_accounts?: { id: number; bank_name: string; account_number: string; account_holder: string }[];
+    qris_path?: string | null;
 };
+type PaymentInfoCollective = {
+    scheme: "v3_collective";
+    type: "collective";
+    school_name: string;
+    banner: string;
+};
+type PaymentInfo = PaymentInfoDirect | PaymentInfoSchool | PaymentInfoCollective;
 
 const rp = (n?: number | null) => (n == null ? "-" : "Rp" + Number(n).toLocaleString("id-ID"));
 const tgl = (s?: string | null) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" }) : "-");
@@ -51,9 +62,10 @@ export default function DetailTagihan({ params }: { params: Promise<{ id: string
     const qc = useQueryClient();
     const [file, setFile] = useState<File | null>(null);
     const [msg, setMsg] = useState("");
+    const [qrisError, setQrisError] = useState(false);
 
     const { data: tagihanData, isLoading } = useQuery({
-        queryKey: ["ortu-invoices", parent?.studentId],
+        queryKey: ["ortu-invoices", parent?.studentId, parent?.phone],
         enabled: !!parent?.studentId,
         queryFn: async () =>
             (await api.post<ApiEnvelope<{ invoices: Invoice[]; payment_info?: PaymentInfo }>>("/bayar/tagihan", { student_id: parent?.studentId, phone: parent?.phone })).data.data,
@@ -67,7 +79,7 @@ export default function DetailTagihan({ params }: { params: Promise<{ id: string
             fd.append("file", file!);
             return api.post("/bayar/upload", fd);
         },
-        onSuccess: () => { setFile(null); setMsg(""); qc.invalidateQueries({ queryKey: ["ortu-invoices", parent?.studentId] }); },
+        onSuccess: () => { setFile(null); setMsg(""); qc.invalidateQueries({ queryKey: ["ortu-invoices", parent?.studentId, parent?.phone] }); },
         onError: (e: any) => setMsg(e?.response?.data?.message ?? "Gagal mengunggah bukti."),
     });
 
@@ -142,7 +154,18 @@ export default function DetailTagihan({ params }: { params: Promise<{ id: string
                                 {paymentInfo.qris_image && (
                                     <div className="mt-3">
                                         <span className="mb-1 block text-xs text-muted-foreground">QRIS Sekolah:</span>
-                                        <img src={paymentInfo.qris_image} alt="QRIS Sekolah" className="max-h-48 rounded-lg border bg-white p-2 object-contain" />
+                                        {qrisError ? (
+                                            <p className="rounded-lg border bg-white p-3 text-xs text-muted-foreground">
+                                                Gambar QRIS tidak dapat dimuat. Silakan transfer melalui rekening bank sekolah di atas.
+                                            </p>
+                                        ) : (
+                                            <img
+                                                src={paymentInfo.qris_image}
+                                                alt="QRIS Sekolah"
+                                                onError={() => setQrisError(true)}
+                                                className="max-h-48 rounded-lg border bg-white p-2 object-contain"
+                                            />
+                                        )}
                                     </div>
                                 )}
                             </Card>
@@ -204,6 +227,7 @@ export default function DetailTagihan({ params }: { params: Promise<{ id: string
                             {inv.status === "ditolak" && <p className="mb-2 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">Bukti sebelumnya ditolak. Silakan unggah ulang.</p>}
                             <input
                                 type="file"
+                                aria-label="Unggah bukti pembayaran"
                                 accept="image/jpeg,image/png,application/pdf"
                                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                                 className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground"
