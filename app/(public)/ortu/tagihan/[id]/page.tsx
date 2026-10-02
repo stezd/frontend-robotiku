@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { ArrowLeft, Upload, Loader2, CheckCircle2, Clock, XCircle, ReceiptText, FileCheck2 } from "lucide-react";
+import { ArrowLeft, Upload, Loader2, CheckCircle2, Clock, XCircle, ReceiptText, FileCheck2, Building2 } from "lucide-react";
 import { api, type ApiEnvelope } from "@/lib/api";
 import { ParentShell } from "@/components/ortu/ParentShell";
 import { useParentGuard } from "@/lib/use-parent-guard";
@@ -18,6 +18,15 @@ type Invoice = {
     id: number; invoice_number?: string; base_amount?: number; registration_fee?: number | null;
     discount_amount?: number; total_amount?: number; due_date?: string | null; status: string;
     payments?: Payment[];
+};
+type PaymentInfo = {
+    scheme: "v1_direct" | "v2_school" | "v3_collective";
+    type: string;
+    school_name?: string;
+    bank_account?: string | null;
+    qris_image?: string | null;
+    banner?: string;
+    bank_accounts?: { id: number; bank_name: string; account_number: string; account_holder: string }[];
 };
 
 const rp = (n?: number | null) => (n == null ? "-" : "Rp" + Number(n).toLocaleString("id-ID"));
@@ -43,11 +52,11 @@ export default function DetailTagihan({ params }: { params: Promise<{ id: string
     const [file, setFile] = useState<File | null>(null);
     const [msg, setMsg] = useState("");
 
-    const { data, isLoading } = useQuery({
+    const { data: tagihanData, isLoading } = useQuery({
         queryKey: ["ortu-invoices", parent?.studentId],
         enabled: !!parent?.studentId,
         queryFn: async () =>
-            (await api.post<ApiEnvelope<{ invoices: Invoice[] }>>("/bayar/tagihan", { student_id: parent?.studentId, phone: parent?.phone })).data.data.invoices,
+            (await api.post<ApiEnvelope<{ invoices: Invoice[]; payment_info?: PaymentInfo }>>("/bayar/tagihan", { student_id: parent?.studentId, phone: parent?.phone })).data.data,
     });
 
     const upload = useMutation({
@@ -73,7 +82,8 @@ export default function DetailTagihan({ params }: { params: Promise<{ id: string
         );
     }
 
-    const inv = data?.find((i) => String(i.id) === id);
+    const inv = tagihanData?.invoices?.find((i) => String(i.id) === id);
+    const paymentInfo = tagihanData?.payment_info;
 
     const st = inv ? ST[inv.status] ?? ST.belum_bayar : null;
     const canUpload = inv && (inv.status === "belum_bayar" || inv.status === "ditolak");
@@ -112,6 +122,52 @@ export default function DetailTagihan({ params }: { params: Promise<{ id: string
                             <Row label="Jatuh tempo" value={tgl(inv.due_date)} />
                         </div>
                     </Card>
+
+                    {/* Instruksi Tujuan Pembayaran */}
+                    {canUpload && paymentInfo && (
+                        paymentInfo.scheme === "v2_school" ? (
+                            <Card className="border-2 border-blue-200 bg-blue-50/40 p-5">
+                                <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-blue-900">
+                                    <Building2 className="h-4 w-4" /> Rekening Pembayaran Sekolah
+                                </h3>
+                                <p className="mb-3 text-xs text-blue-800">
+                                    Pembayaran ditransfer langsung ke rekening pihak {paymentInfo.school_name || "sekolah mitra"}, lalu unggah buktinya di bawah:
+                                </p>
+                                {paymentInfo.bank_account && (
+                                    <div className="rounded-lg border border-blue-200 bg-white p-3 text-sm">
+                                        <span className="block text-xs text-muted-foreground">Rekening Bank Sekolah:</span>
+                                        <span className="font-semibold text-slate-800">{paymentInfo.bank_account}</span>
+                                    </div>
+                                )}
+                                {paymentInfo.qris_image && (
+                                    <div className="mt-3">
+                                        <span className="mb-1 block text-xs text-muted-foreground">QRIS Sekolah:</span>
+                                        <img src={paymentInfo.qris_image} alt="QRIS Sekolah" className="max-h-48 rounded-lg border bg-white p-2 object-contain" />
+                                    </div>
+                                )}
+                            </Card>
+                        ) : paymentInfo.scheme === "v1_direct" && paymentInfo.bank_accounts && paymentInfo.bank_accounts.length > 0 ? (
+                            <Card className="border-2 border-purple-200 bg-purple-50/40 p-5">
+                                <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-purple-900">
+                                    <Building2 className="h-4 w-4" /> Rekening Resmi Robotiku
+                                </h3>
+                                <p className="mb-3 text-xs text-purple-800">
+                                    Transfer sesuai nominal ke salah satu rekening resmi Robotiku berikut:
+                                </p>
+                                <div className="space-y-2">
+                                    {paymentInfo.bank_accounts.map((b) => (
+                                        <div key={b.id} className="flex items-center justify-between rounded-lg border border-purple-200 bg-white p-3 text-sm">
+                                            <div>
+                                                <span className="font-bold text-slate-800">{b.bank_name}</span>
+                                                <span className="block text-xs text-muted-foreground">{b.account_holder}</span>
+                                            </div>
+                                            <span className="font-mono font-bold text-primary">{b.account_number}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </Card>
+                        ) : null
+                    )}
 
                     {/* Riwayat bukti pembayaran */}
                     {payments.length > 0 && (
