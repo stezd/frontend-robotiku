@@ -19,15 +19,12 @@ import {
     Clock,
     ArrowUpRight,
     CheckCircle2,
-    Target,
     Calendar,
-    Layers,
     History,
     TrendingUp,
 } from "lucide-react";
 import { InternalShell } from "@/components/internal/InternalShell";
-import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -39,7 +36,6 @@ import {
     TableHead,
     TableCell,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
 
 const MONTHS = [
     "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -77,11 +73,14 @@ export default function MarketingDashboardPage() {
     const [month, setMonth] = useState<number>(now.getMonth() + 1);
     const [year, setYear] = useState<number>(now.getFullYear());
 
+    const isAllTime = period === "all_time";
+    const selectedMonthName = MONTHS[month - 1];
+
     const { data, isLoading } = useQuery<MarketingDashboardData>({
-        queryKey: ["canvas-dashboard-marketing", period, period === "bulan_ini" ? `${month}-${year}` : "all"],
+        queryKey: ["canvas-dashboard-marketing", period, !isAllTime ? `${month}-${year}` : "all"],
         queryFn: async () => {
             const params: Record<string, string | number> = { period };
-            if (period === "bulan_ini") {
+            if (!isAllTime) {
                 params.month = month;
                 params.year = year;
             }
@@ -93,13 +92,13 @@ export default function MarketingDashboardPage() {
         return (
             <InternalShell>
                 <div className="space-y-6">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <Skeleton className="h-7 w-48" />
+                            <Skeleton className="h-8 w-56" />
                             <Skeleton className="mt-1 h-4 w-72" />
                         </div>
                         <div className="flex items-center gap-2">
-                            <Skeleton className="h-8 w-44" />
+                            <Skeleton className="h-8 w-24" />
                             <Skeleton className="h-8 w-28" />
                         </div>
                     </div>
@@ -108,11 +107,11 @@ export default function MarketingDashboardPage() {
                         {Array.from({ length: 4 }).map((_, i) => (
                             <Card key={i}>
                                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                                    <Skeleton className="h-4 w-24" />
-                                    <Skeleton className="h-4 w-4 rounded-full" />
+                                    <Skeleton className="h-4 w-28" />
+                                    <Skeleton className="h-4 w-4" />
                                 </CardHeader>
                                 <CardContent className="space-y-2">
-                                    <Skeleton className="h-8 w-16" />
+                                    <Skeleton className="h-8 w-20" />
                                     <Skeleton className="h-3 w-32" />
                                 </CardContent>
                             </Card>
@@ -122,20 +121,18 @@ export default function MarketingDashboardPage() {
                     <div className="grid gap-4 lg:grid-cols-5">
                         <Card className="lg:col-span-3">
                             <CardHeader>
-                                <Skeleton className="h-5 w-40" />
-                                <Skeleton className="h-4 w-60" />
+                                <Skeleton className="h-5 w-44" />
                             </CardHeader>
                             <CardContent>
-                                <Skeleton className="h-[220px] w-full" />
+                                <Skeleton className="h-[200px] w-full" />
                             </CardContent>
                         </Card>
                         <Card className="lg:col-span-2">
                             <CardHeader>
-                                <Skeleton className="h-5 w-36" />
-                                <Skeleton className="h-4 w-52" />
+                                <Skeleton className="h-5 w-40" />
                             </CardHeader>
                             <CardContent>
-                                <Skeleton className="h-[220px] w-full" />
+                                <Skeleton className="h-[200px] w-full" />
                             </CardContent>
                         </Card>
                     </div>
@@ -143,10 +140,9 @@ export default function MarketingDashboardPage() {
                     <Card>
                         <CardHeader>
                             <Skeleton className="h-5 w-44" />
-                            <Skeleton className="h-4 w-80" />
                         </CardHeader>
                         <CardContent>
-                            <Skeleton className="h-40 w-full" />
+                            <Skeleton className="h-36 w-full" />
                         </CardContent>
                     </Card>
                 </div>
@@ -155,8 +151,6 @@ export default function MarketingDashboardPage() {
     }
 
     const { kpi, status, prioritas } = data;
-    const isAllTime = period === "all_time";
-    const selectedMonthName = MONTHS[month - 1];
 
     const safeTarget = Math.max(1, kpi.targetKunjungan);
     const pencapaianKunjungan = Math.min(100, Math.round((kpi.kunjunganBulanIni / safeTarget) * 100));
@@ -169,48 +163,88 @@ export default function MarketingDashboardPage() {
         ? (kunjunganDisplay / mouDisplay).toFixed(1)
         : "-";
 
+    const cards = [
+        {
+            label: "Prospek Aktif",
+            value: kpi.prospekAktif,
+            subtitle: "Tahap prospek & penjajakan",
+            icon: Building2,
+        },
+        {
+            label: "Perlu Tindak Lanjut",
+            value: (
+                <div className="flex items-baseline justify-between">
+                    <span>{kpi.menungguFollowUp}</span>
+                    {kpi.menungguFollowUp > 0 ? (
+                        <Badge variant="outline" className="text-amber-600 border-amber-200 dark:border-amber-900/50 text-[11px] font-normal">
+                            Perlu Atensi
+                        </Badge>
+                    ) : (
+                        <Badge variant="outline" className="text-emerald-600 border-emerald-200 dark:border-emerald-900/50 text-[11px] font-normal">
+                            Lancar
+                        </Badge>
+                    )}
+                </div>
+            ),
+            subtitle: "> 7 hari tanpa kunjungan",
+            icon: Clock,
+        },
+        {
+            label: isAllTime ? "Total MoU (All Time)" : `MoU (${selectedMonthName})`,
+            value: mouDisplay,
+            subtitle: isAllTime ? "Total kemitraan resmi tercatat" : `MoU di ${selectedMonthName} ${year}`,
+            icon: Handshake,
+        },
+        {
+            label: isAllTime ? "Total Kunjungan (All Time)" : "Kunjungan Lapangan",
+            value: (
+                <div className="flex items-baseline gap-1.5">
+                    <span>{kunjunganDisplay}</span>
+                    {!isAllTime && (
+                        <span className="text-xs text-muted-foreground font-normal">
+                            / {kpi.targetKunjungan} target
+                        </span>
+                    )}
+                </div>
+            ),
+            subtitle: isAllTime
+                ? "Total pertemuan lapangan tercatat"
+                : `Capaian ${pencapaianKunjungan}% di ${selectedMonthName} ${year}`,
+            icon: MapPin,
+        },
+    ];
+
     return (
         <InternalShell>
             <div className="space-y-6">
-                {/* Header dengan Opsi Periode (Per Bulan / All Time) */}
+                {/* Header: Konsisten dengan SuperAdmin Dashboard */}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <PageHeader
-                        title="Dashboard Marketing"
-                        subtitle="Ringkasan aktivitas kanvas, status pipeline, dan prioritas follow-up sekolah mitra."
-                    />
+                    <div>
+                        <h1 className="text-2xl font-semibold tracking-tight">Dashboard Marketing</h1>
+                        <p className="text-sm text-muted-foreground">
+                            Ringkasan performa pipeline sekolah mitra dan target operasional canvas.
+                        </p>
+                    </div>
 
+                    {/* Filter Periode & Aksi Cepat */}
                     <div className="flex flex-wrap items-center gap-2">
-                        {/* Segmented Control Filter Periode */}
-                        <div className="inline-flex items-center rounded-lg border bg-muted/50 p-1 text-xs">
-                            <button
-                                type="button"
-                                onClick={() => setPeriod("bulan_ini")}
-                                className={cn(
-                                    "flex items-center gap-1.5 rounded-md px-3 py-1 font-medium transition-all cursor-pointer",
-                                    !isAllTime
-                                        ? "bg-background text-foreground shadow-xs"
-                                        : "text-muted-foreground hover:text-foreground"
-                                )}
-                            >
-                                <Calendar className="h-3.5 w-3.5" />
-                                Per Bulan
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setPeriod("all_time")}
-                                className={cn(
-                                    "flex items-center gap-1.5 rounded-md px-3 py-1 font-medium transition-all cursor-pointer",
-                                    isAllTime
-                                        ? "bg-background text-foreground shadow-xs"
-                                        : "text-muted-foreground hover:text-foreground"
-                                )}
-                            >
-                                <History className="h-3.5 w-3.5" />
-                                Semua Waktu
-                            </button>
-                        </div>
+                        <Button
+                            size="sm"
+                            variant={!isAllTime ? "default" : "outline"}
+                            onClick={() => setPeriod("bulan_ini")}
+                        >
+                            <Calendar className="mr-1.5 h-3.5 w-3.5" />
+                            Bulan Ini
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant={isAllTime ? "default" : "outline"}
+                            onClick={() => setPeriod("all_time")}
+                        >
+                            <History className="mr-1.5 h-3.5 w-3.5" />
+                            Semua Waktu
+                        </Button>
 
-                        {/* Pemilih Bulan & Tahun ketika mode Per Bulan aktif */}
                         {!isAllTime && (
                             <div className="flex items-center gap-1.5">
                                 <select
@@ -243,138 +277,64 @@ export default function MarketingDashboardPage() {
                         <Button variant="outline" size="sm" asChild>
                             <Link href="/app/canvas">
                                 Pipeline Canvas
-                                <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+                                <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
                             </Link>
                         </Button>
                     </div>
                 </div>
 
-                {/* Baris 1: Key Metrics */}
+                {/* Baris 1: Metric Cards - Konsisten dengan SuperAdmin Dashboard */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Prospek Aktif</CardTitle>
-                            <Building2 className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-semibold tracking-tight tabular-nums">
-                                {kpi.prospekAktif}
-                            </div>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                Tahap prospek &amp; penjajakan
-                            </p>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Perlu Tindak Lanjut</CardTitle>
-                            <Clock className={`h-4 w-4 ${kpi.menungguFollowUp > 0 ? "text-amber-500" : "text-muted-foreground"}`} />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex items-baseline justify-between">
+                    {cards.map(({ label, value, subtitle, icon: Icon }) => (
+                        <Card key={label}>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
+                                <Icon className="h-4 w-4 text-primary" />
+                            </CardHeader>
+                            <CardContent>
                                 <div className="text-2xl font-semibold tracking-tight tabular-nums">
-                                    {kpi.menungguFollowUp}
+                                    {value}
                                 </div>
-                                {kpi.menungguFollowUp > 0 ? (
-                                    <Badge variant="outline" className="text-amber-600 border-amber-200 dark:border-amber-900/50">
-                                        Perlu Atensi
-                                    </Badge>
-                                ) : (
-                                    <Badge variant="outline" className="text-emerald-600 border-emerald-200 dark:border-emerald-900/50">
-                                        Lancar
-                                    </Badge>
-                                )}
-                            </div>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                &gt; 7 hari tanpa interaksi
-                            </p>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">
-                                {isAllTime ? "Total MoU (All Time)" : `MoU (${selectedMonthName})`}
-                            </CardTitle>
-                            <Handshake className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-semibold tracking-tight tabular-nums">
-                                {mouDisplay}
-                            </div>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                {isAllTime ? "Total kemitraan resmi sepanjang waktu" : `Resmi disepakati di ${selectedMonthName} ${year}`}
-                            </p>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">
-                                {isAllTime ? "Total Kunjungan" : "Kunjungan Lapangan"}
-                            </CardTitle>
-                            <MapPin className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-semibold tracking-tight tabular-nums">
-                                    {kunjunganDisplay}
-                                </span>
-                                {!isAllTime && (
-                                    <span className="text-xs text-muted-foreground">
-                                        / {kpi.targetKunjungan} target
-                                    </span>
-                                )}
-                            </div>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                {isAllTime
-                                    ? "Total kunjungan pertemuan tercatat"
-                                    : `Capaian ${pencapaianKunjungan}% di ${selectedMonthName} ${year}`}
-                            </p>
-                        </CardContent>
-                    </Card>
+                                <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
+                            </CardContent>
+                        </Card>
+                    ))}
                 </div>
 
-                {/* Baris 2: Pipeline Distribution & Target / Akumulasi Progress */}
+                {/* Baris 2: Pipeline Sekolah (Canvas) & Target/Akumulasi */}
                 <div className="grid gap-4 lg:grid-cols-5">
-                    {/* Pipeline Stage Funnel */}
+                    {/* Pipeline Sekolah - Konsisten dengan pola SuperAdmin */}
                     <Card className="lg:col-span-3">
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <CardTitle className="text-base font-semibold">Distribusi Pipeline Kemitraan</CardTitle>
-                                    <CardDescription>
-                                        Sebaran {totalPipeline} sekolah mitra pada tahapan kanvas aktif
-                                    </CardDescription>
-                                </div>
-                                <Layers className="h-4 w-4 text-muted-foreground" />
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <div>
+                                <CardTitle className="text-base font-semibold">Pipeline Sekolah (Canvas)</CardTitle>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    Total {totalPipeline} sekolah mitra pada tahapan kanvas
+                                </p>
                             </div>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            {/* Visual stage segments */}
-                            <div className="grid grid-cols-3 gap-2 pt-1">
-                                {status.map((item) => {
-                                    const percentage = totalPipeline > 0 ? Math.round((item.value / totalPipeline) * 100) : 0;
+                        <CardContent className="space-y-4 pt-2">
+                            {/* Format Badge Pills sesuai persis dengan SuperAdmin Dashboard */}
+                            <div className="flex flex-wrap gap-3">
+                                {status.map((p) => {
+                                    const percentage = totalPipeline > 0 ? Math.round((p.value / totalPipeline) * 100) : 0;
                                     return (
-                                        <div key={item.name} className="rounded-lg border bg-muted/30 p-3">
-                                            <span className="text-xs font-medium text-muted-foreground">{item.name}</span>
-                                            <div className="mt-1 flex items-baseline justify-between">
-                                                <span className="text-lg font-semibold tabular-nums">{item.value}</span>
-                                                <span className="text-xs text-muted-foreground tabular-nums">{percentage}%</span>
-                                            </div>
+                                        <div key={p.name} className="flex items-center gap-2 rounded-lg border px-4 py-2">
+                                            <span className="text-sm text-muted-foreground">{p.name}</span>
+                                            <Badge variant="secondary">{p.value}</Badge>
+                                            <span className="text-xs text-muted-foreground">({percentage}%)</span>
                                         </div>
                                     );
                                 })}
                             </div>
 
-                            {/* Horizontal Bar Chart */}
-                            <div className="h-[180px] w-full pt-2">
+                            {/* Grafik Horizontal Batang Distribusi */}
+                            <div className="h-[150px] w-full pt-1">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart
                                         layout="vertical"
                                         data={status}
-                                        margin={{ top: 8, right: 16, left: 0, bottom: 8 }}
+                                        margin={{ top: 4, right: 16, left: 0, bottom: 4 }}
                                     >
                                         <XAxis type="number" hide />
                                         <YAxis
@@ -383,7 +343,7 @@ export default function MarketingDashboardPage() {
                                             axisLine={false}
                                             tickLine={false}
                                             fontSize={12}
-                                            width={100}
+                                            width={90}
                                             className="fill-muted-foreground font-medium"
                                         />
                                         <Tooltip
@@ -408,7 +368,7 @@ export default function MarketingDashboardPage() {
                                             dataKey="value"
                                             fill="var(--primary)"
                                             radius={[0, 4, 4, 0]}
-                                            barSize={24}
+                                            barSize={20}
                                         />
                                     </BarChart>
                                 </ResponsiveContainer>
@@ -416,34 +376,32 @@ export default function MarketingDashboardPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Target / Kinerja Aktivitas Card */}
+                    {/* Sisi Kanan: Target Bulanan vs Kinerja Akumulatif */}
                     <Card className="lg:col-span-2 flex flex-col justify-between">
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <CardTitle className="text-base font-semibold">
-                                        {isAllTime ? "Ringkasan Kinerja Kemitraan" : "Progres Target Kunjungan"}
-                                    </CardTitle>
-                                    <CardDescription>
-                                        {isAllTime ? "Akumulasi aktivitas sepanjang waktu" : `Sasaran operasional ${selectedMonthName} ${year}`}
-                                    </CardDescription>
-                                </div>
-                                {isAllTime ? (
-                                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                                ) : (
-                                    <Target className="h-4 w-4 text-muted-foreground" />
-                                )}
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <div>
+                                <CardTitle className="text-base font-semibold">
+                                    {isAllTime ? "Kinerja Kemitraan (All Time)" : "Target Kunjungan Bulanan"}
+                                </CardTitle>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    {isAllTime ? "Akumulasi aktivitas sepanjang waktu" : `Target ${selectedMonthName} ${year}`}
+                                </p>
                             </div>
+                            {isAllTime ? (
+                                <TrendingUp className="h-4 w-4 text-primary" />
+                            ) : (
+                                <MapPin className="h-4 w-4 text-primary" />
+                            )}
                         </CardHeader>
 
                         {!isAllTime ? (
-                            <CardContent className="space-y-6">
+                            <CardContent className="space-y-4 pt-2">
                                 <div className="space-y-2">
                                     <div className="flex items-baseline justify-between text-sm">
-                                        <span className="text-muted-foreground">Capaian Kunjungan</span>
+                                        <span className="text-muted-foreground">Pencapaian Kuota</span>
                                         <span className="font-semibold tabular-nums text-foreground">{pencapaianKunjungan}%</span>
                                     </div>
-                                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                                         <div
                                             className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
                                             style={{ width: `${pencapaianKunjungan}%` }}
@@ -451,63 +409,51 @@ export default function MarketingDashboardPage() {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-3 border-t pt-4">
-                                    <div className="space-y-1">
-                                        <span className="text-xs text-muted-foreground">Kunjungan Berjalan</span>
-                                        <p className="text-lg font-semibold tabular-nums">{kpi.kunjunganBulanIni}</p>
+                                <div className="grid grid-cols-2 gap-3 pt-2">
+                                    <div className="flex flex-col rounded-lg border p-3">
+                                        <span className="text-xs text-muted-foreground">Realisasi</span>
+                                        <span className="text-lg font-semibold tabular-nums mt-0.5">{kpi.kunjunganBulanIni}</span>
+                                        <span className="text-[11px] text-muted-foreground">Kunjungan</span>
                                     </div>
-                                    <div className="space-y-1">
+                                    <div className="flex flex-col rounded-lg border p-3">
                                         <span className="text-xs text-muted-foreground">Target Bulanan</span>
-                                        <p className="text-lg font-semibold tabular-nums">{kpi.targetKunjungan}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <span className="text-xs text-muted-foreground">Sisa Kunjungan</span>
-                                        <p className="text-lg font-semibold tabular-nums text-foreground">
-                                            {sisaKunjungan === 0 ? "Target Terpenuhi" : `${sisaKunjungan} lagi`}
-                                        </p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <span className="text-xs text-muted-foreground">Status Aktivitas</span>
-                                        <p className="text-xs font-medium text-foreground mt-1">
-                                            {pencapaianKunjungan >= 100
-                                                ? "Target tercapai"
-                                                : pencapaianKunjungan >= 50
-                                                ? "Sesuai ritme"
-                                                : "Perlu percepatan"}
-                                        </p>
+                                        <span className="text-lg font-semibold tabular-nums mt-0.5">{kpi.targetKunjungan}</span>
+                                        <span className="text-[11px] text-muted-foreground">Kunjungan</span>
                                     </div>
                                 </div>
 
-                                <p className="text-xs text-muted-foreground border-t pt-3">
+                                <div className="rounded-lg border px-3 py-2 text-xs text-muted-foreground">
                                     {sisaKunjungan > 0
-                                        ? `Diperlukan ${sisaKunjungan} kunjungan lagi sebelum akhir bulan untuk memenuhi kuota target.`
+                                        ? `Diperlukan ${sisaKunjungan} kunjungan lagi untuk memenuhi target bulan ini.`
                                         : "Target kuota kunjungan untuk periode bulan ini telah tercapai."}
-                                </p>
+                                </div>
                             </CardContent>
                         ) : (
-                            <CardContent className="space-y-6">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="rounded-lg border bg-muted/20 p-3 space-y-1">
+                            <CardContent className="space-y-4 pt-2">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="flex flex-col rounded-lg border p-3">
                                         <span className="text-xs text-muted-foreground">Total Kunjungan</span>
-                                        <p className="text-2xl font-bold tabular-nums text-foreground">{kunjunganDisplay}</p>
-                                        <p className="text-[11px] text-muted-foreground">Log pertemuan lapangan</p>
+                                        <span className="text-lg font-semibold tabular-nums mt-0.5">{kunjunganDisplay}</span>
+                                        <span className="text-[11px] text-muted-foreground">Tatap muka</span>
                                     </div>
-                                    <div className="rounded-lg border bg-muted/20 p-3 space-y-1">
+                                    <div className="flex flex-col rounded-lg border p-3">
                                         <span className="text-xs text-muted-foreground">Total MoU</span>
-                                        <p className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{mouDisplay}</p>
-                                        <p className="text-[11px] text-muted-foreground">Kemitraan resmi aktif</p>
+                                        <span className="text-lg font-semibold tabular-nums mt-0.5 text-emerald-600 dark:text-emerald-400">
+                                            {mouDisplay}
+                                        </span>
+                                        <span className="text-[11px] text-muted-foreground">Resmi sepakat</span>
                                     </div>
                                 </div>
 
-                                <div className="border-t pt-4 space-y-2">
+                                <div className="rounded-lg border px-3 py-2.5 space-y-1">
                                     <div className="flex items-baseline justify-between text-xs">
-                                        <span className="text-muted-foreground">Rasio Efektivitas Kunjungan per MoU:</span>
+                                        <span className="text-muted-foreground">Efektivitas Interaksi:</span>
                                         <span className="font-semibold text-foreground tabular-nums">
                                             {kunjunganPerMou} kunjungan / MoU
                                         </span>
                                     </div>
-                                    <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                                        Statistik di atas merangkum seluruh catatan interaksi tatap muka dan konversi kesepakatan MoU sejak sekolah pertama kali didaftarkan.
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Rata-rata frekuensi kunjungan lapangan yang dibutuhkan untuk closing 1 sekolah mitra.
                                     </p>
                                 </div>
                             </CardContent>
@@ -518,19 +464,13 @@ export default function MarketingDashboardPage() {
                 {/* Baris 3: Prioritas Follow-Up */}
                 <Card>
                     <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b pb-4">
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <CardTitle className="text-base font-semibold">Prioritas Tindak Lanjut</CardTitle>
-                                {prioritas.length > 0 && (
-                                    <Badge variant="secondary" className="font-normal text-xs">
-                                        {prioritas.length} sekolah
-                                    </Badge>
-                                )}
-                            </div>
-                            <CardDescription className="mt-1">
-                                Sekolah status &apos;Dalam Proses&apos; yang belum dikunjungi lebih dari 7 hari.
-                            </CardDescription>
+                        <div className="flex items-center gap-2">
+                            <CardTitle className="text-base font-semibold">Prioritas Tindak Lanjut</CardTitle>
+                            {prioritas.length > 0 && <Badge variant="secondary">{prioritas.length}</Badge>}
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                            Sekolah mitra status &apos;Dalam Proses&apos; yang belum dikunjungi lebih dari 7 hari.
+                        </p>
                     </CardHeader>
                     <CardContent className="p-0">
                         {prioritas.length > 0 ? (
@@ -564,7 +504,7 @@ export default function MarketingDashboardPage() {
                                                 <Button variant="outline" size="sm" asChild>
                                                     <Link href={`/app/canvas/${item.id}`}>
                                                         Buka Canvas
-                                                        <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+                                                        <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
                                                     </Link>
                                                 </Button>
                                             </TableCell>
